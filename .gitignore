@@ -7,3 +7,4 @@ __test__*__
 *.exe
 instrdump.txt
 dub.selections.json
+.vscode
