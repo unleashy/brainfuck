@@ -1,0 +1,9 @@
+{
+	"name": "brainfuck",
+	"authors": [
+		"unleashy"
+	],
+	"description": "Brainfuck interpreter",
+	"copyright": "Copyright © 2017, unleashy",
+	"license": "MIT"
+}
