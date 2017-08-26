@@ -1,31 +1,40 @@
 import std.stdio,
        std.file;
 
+import docopt;
+
 import executor,
        parser,
        instruction;
 
-int main(string[] args)
-{
-	if (args.length < 2) {
-        stderr.writeln("error: please provide a filename");
-        return 1;
-    }
+enum VERSION = "0.1.0";
 
-    immutable filename = args[1];
+enum DOC =
+r"brainfuck v" ~ VERSION ~ "
+
+Usage:
+    brainfuck [-d | --dump] <filename>
+    brainfuck -h | --help
+    brainfuck --version
+
+Options:
+    -h --help  Show this screen.
+    --version  Show the interpreter's version.
+    -d --dump  Dump the instruction stream to a file.
+";
+
+int main(string[] rawArgs)
+{
+    auto args = docopt.docopt(DOC, rawArgs[1 .. $], true, "brainfuck v" ~ VERSION);
+
+    const filename = args["<filename>"].toString;
     if (!exists(filename)) {
-        stderr.writeln("error: given file does not exist");
+        stderr.writefln("error: could not find a file named %s", filename);
         return 1;
     }
 
     try {
-        Instruction[] instrs = void;
-
-        {
-            Parser parser = Parser(filename);
-            instrs = parser.parse();
-        }
-
+        Instruction[] instrs = Parser(filename).parse();
         Executor executor = Executor();
         executor.execute(instrs);
     } catch (ParserException e) {
