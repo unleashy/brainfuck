@@ -5,5 +5,9 @@
 	],
 	"description": "Brainfuck interpreter",
 	"copyright": "Copyright © 2017, unleashy",
-	"license": "MIT"
+    "license": "MIT",
+
+    "dependencies": {
+        "docopt": "~>0.6.1-b.6"
+    }
 }
