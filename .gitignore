@@ -5,6 +5,6 @@ __dummy.html
 *.obj
 __test__*__
 *.exe
-instrdump.txt
+*.bfidmp
 dub.selections.json
 .vscode

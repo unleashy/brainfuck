@@ -23,6 +23,24 @@ Options:
     -d --dump  Dump the instruction stream to a file.
 ";
 
+void dumpInstrs(in Instruction[] instrs, in string filename)
+{
+    import std.conv : to;
+
+    auto file = File(filename, "wb");
+
+    foreach (ref instr; instrs) {
+        file.writefln("%s %d", to!string(instr.type), instr.value);
+    }
+}
+
+string removeExt(in string filename) pure
+{
+    import std.algorithm.searching : findSplitBefore;
+
+    return findSplitBefore(filename, ".")[0];
+}
+
 int main(string[] rawArgs)
 {
     auto args = docopt.docopt(DOC, rawArgs[1 .. $], true, "brainfuck v" ~ VERSION);
@@ -34,9 +52,10 @@ int main(string[] rawArgs)
     }
 
     try {
-        Instruction[] instrs = Parser(filename).parse();
-        Executor executor = Executor();
-        executor.execute(instrs);
+        const instrs = Parser(filename).parse();
+        if (args["--dump"].isTrue) dumpInstrs(instrs, filename.removeExt() ~ ".bfidmp");
+
+        Executor().execute(instrs);
     } catch (ParserException e) {
         stderr.writefln("error: %s", e.msg);
 

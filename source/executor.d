@@ -49,7 +49,7 @@ struct Executor
         }
     }
 
-    void execute(ref Instruction[] instrs)
+    void execute(in Instruction[] instrs)
     {
         size_t tapeIndex;
         Tape tape;

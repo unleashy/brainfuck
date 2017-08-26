@@ -13,7 +13,7 @@ struct Parser
 {
     private Lexer lexer;
 
-    this(string filename)
+    this(in string filename)
     {
         lexer = Lexer(filename);
     }
@@ -71,32 +71,8 @@ struct Parser
             }
         } while (nextToken != Token.EOF);
 
-        import std.stdio : File;
-        import std.conv : to;
-        auto dump = File("instrdump.txt", "wb");
-
-        dump.writeln("Raw:");
-        foreach (instr; instrs) {
-            dump.writefln!"%s\t\t%d"(to!string(instr.type), instr.value);
-        }
-        dump.writeln("\n");
-
         optimize(instrs);
-
-        dump.writeln("Optimized:");
-        foreach (instr; instrs) {
-            dump.writefln!"%s\t\t%d"(to!string(instr.type), instr.value);
-        }
-        dump.writeln("\n");
-
         linkJumps(instrs);
-
-        dump.writeln("Optimized with Jumps linked:");
-        foreach (instr; instrs) {
-            dump.writefln!"%s\t\t%d"(to!string(instr.type), instr.value);
-        }
-        dump.write("\n");
-        dump.close();
 
         return instrs;
     }
