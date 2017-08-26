@@ -6,5 +6,6 @@ __dummy.html
 __test__*__
 *.exe
 *.bfidmp
+*.bfc
 dub.selections.json
 .vscode
