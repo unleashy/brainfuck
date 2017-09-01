@@ -8,7 +8,7 @@ import executor,
        instruction,
        compiler;
 
-enum VERSION = "0.1.0";
+enum VERSION = "1.0.0";
 
 enum DOC =
 r"brainfuck v" ~ VERSION ~ "
