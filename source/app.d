@@ -5,7 +5,8 @@ import docopt;
 
 import executor,
        parser,
-       instruction;
+       instruction,
+       compiler;
 
 enum VERSION = "0.1.0";
 
@@ -13,20 +14,94 @@ enum DOC =
 r"brainfuck v" ~ VERSION ~ "
 
 Usage:
-    brainfuck [-d | --dump] [-c | -e | --compile | --execute] <filename>
+    brainfuck [run] [-d | --dump] <filename>
+    brainfuck compile [-d | --dump] [--keep-generated] [--compiler=<path>] <filename> [(-- <args>...)]
     brainfuck -h | --help
     brainfuck --version
 
 Options:
-    -h --help     Show this screen.
-    --version     Show the interpreter's version.
-    -d --dump     Dump the instruction stream to a file.
-    -c --compile  Output a binary file with the instructions that can
-                  then be ran directly with `-e <filename>`.
-    -e --execute  Execute a compiled file created by `--compile`.
+    -h --help          Show this screen.
+    --version          Show the program's version.
+    -d --dump          Dump the instruction stream to a file.
+    --compiler=<path>  Use the given `<path>` as the path to the D compiler
+                       to use for compiling to an executable. Pass arguments
+                       to the D compiler after `--`. [default: dmd]
+    --keep-generated   Keep generated D files when the `compile` command is
+                       used.
 ";
 
-enum MAGIC_NUMBER = cast(ubyte[]) "DBFC1";
+private struct Options
+{
+    import argvalue : ArgValue;
+
+    string filename;
+    bool dump;
+    bool compile;
+    string compilerPath;
+    string[] compilerArgs;
+    bool keepGenerated;
+
+    static Options parse(ArgValue[string] args)
+    {
+        return Options(
+            args["<filename>"].toString,
+            args["--dump"].isTrue,
+            args["compile"].isTrue,
+            args["--compiler"].toString,
+            args["<args>"].asList,
+            args["--keep-generated"].isTrue
+        );
+    }
+}
+
+int main(string[] args)
+{
+    auto opts = Options.parse(docopt.docopt(DOC, args[1 .. $], true, "brainfuck v" ~ VERSION));
+
+    if (!exists(opts.filename)) {
+        stderr.writefln("error: could not find a file named %s", opts.filename);
+        return 1;
+    }
+
+    const filenameNoExt = opts.filename.removeExt();
+
+    try {
+        const instrs = Parser(opts.filename).parse();
+
+        if (opts.dump) dumpInstrs(instrs, filenameNoExt ~ ".bfidmp");
+        if (opts.compile) {
+            import std.path : absolutePath;
+
+            version (Windows) {
+                immutable string exeName = filenameNoExt ~ ".exe";
+            } else {
+                immutable string exeName = filenameNoExt ~ ".o";
+            }
+
+            immutable ret = compiler.compile(
+                instrs,
+                opts.compilerPath,
+                opts.compilerArgs,
+                absolutePath(exeName),
+                opts.keepGenerated
+            );
+
+            if (ret != 0) {
+                stderr.writefln("Compilation failed (error code %d).", ret);
+
+                return 1;
+            }
+        } else {
+            Executor().execute(instrs);
+        }
+    } catch (ParserException e) {
+        stderr.writefln("error: %s", e.msg);
+
+        return 1;
+    }
+
+    return 0;
+}
 
 void dumpInstrs(in Instruction[] instrs, in string filename)
 {
@@ -39,90 +114,9 @@ void dumpInstrs(in Instruction[] instrs, in string filename)
     }
 }
 
-/*
-format of a compiled file:
-
-header - MAGIC_NUMBER nul
-body   - instruction_type (1 byte) instruction_value (4 bytes)
-         ^ repeating until EOF
-*/
-void compileInstrs(in Instruction[] instrs, in string filename)
-{
-    auto file = File(filename, "wb");
-
-    // magic number
-    file.rawWrite(MAGIC_NUMBER ~ cast(ubyte) 0);
-
-    foreach (ref instr; instrs) {
-        file.rawWrite([cast(ubyte) instr.type]);
-        file.rawWrite([cast(int) instr.value]);
-    }
-}
-
-Instruction[] readCompiledInstrs(in string filename)
-{
-    Instruction[] buf;
-    auto file = File(filename, "rb");
-
-    T[] readCheckEof(T)(T[] read) {
-        if (file.eof) throw new ParserException("unexpected end of file");
-        return read;
-    }
-
-    if (readCheckEof(file.rawRead(new ubyte[6]))[0 .. 5] != MAGIC_NUMBER) {
-        throw new ParserException("the given file is not valid compiled brainfuck code");
-    }
-
-    while (true) {
-        const instrType = file.rawRead(new ubyte[1]);
-        if (file.eof) break;
-
-        if (instrType[0] < InstructionType.min || instrType[0] > InstructionType.max) {
-            throw new ParserException("unknown instruction found when reading file");
-        }
-
-        const instrValue = file.rawRead(new int[1]);
-        if (file.eof) break;
-
-        buf ~= Instruction(cast(InstructionType) instrType[0], instrValue[0]);
-    }
-
-    return buf;
-}
-
 string removeExt(in string filename) pure
 {
     import std.algorithm.searching : findSplitBefore;
 
     return findSplitBefore(filename, ".")[0];
-}
-
-int main(string[] rawArgs)
-{
-    auto args = docopt.docopt(DOC, rawArgs[1 .. $], true, "brainfuck v" ~ VERSION);
-
-    const filename = args["<filename>"].toString;
-    if (!exists(filename)) {
-        stderr.writefln("error: could not find a file named %s", filename);
-        return 1;
-    }
-
-    const filenameNoExt = filename.removeExt();
-
-    try {
-        const instrs = args["--execute"].isTrue ? readCompiledInstrs(filename) : Parser(filename).parse();
-
-        if (args["--dump"].isTrue) dumpInstrs(instrs, filenameNoExt ~ ".bfidmp");
-        if (args["--compile"].isTrue) {
-            compileInstrs(instrs, filenameNoExt ~ ".bfc");
-        } else {
-            Executor().execute(instrs);
-        }
-    } catch (ParserException e) {
-        stderr.writefln("error: %s", e.msg);
-
-        return 1;
-    }
-
-    return 0;
 }
